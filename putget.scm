@@ -3,7 +3,7 @@
 ;; store 4 names in a file
 
 (define a '("hannah","sarah","leah","jimmy"))
-(define oport (open-output-file "/Users/jaten/research/bigloo/test.dat"))
+(define oport (open-output-file "test.dat"))
 (write a oport)
 (close-output-port oport)
 
@@ -29,12 +29,12 @@
 
 ;; retreive those names
 
-(define iport (open-input-file "/Users/jaten/research/bigloo/test.dat"))
+(define iport (open-input-file "test.dat"))
 (define b (read iport))
 (close-input-port iport)
 
 ;; better yet, name what we get, and use our new function file-get
-(define a (file-get "/Users/jaten/research/bigloo/test.dat"))
+(define a (file-get "test.dat"))
 
 
 ;; make a hash-table for them
