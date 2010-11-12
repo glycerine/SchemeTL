@@ -7,14 +7,16 @@
 (write a oport)
 (close-output-port oport)
 
-(define put (lambda (x path)
+;; define some shortcuts file-put and file-get, to make that easier.
+
+(define file-put (lambda (x path)
 	       (define oport (open-output-file path))
 	       (write a oport)
 	       (close-output-port oport)
 	       )
    )
 
-(define get (lambda (path)
+(define file-get (lambda (path)
 	       (let (
 		     (iport (open-input-file path))
 		     )
@@ -31,8 +33,8 @@
 (define b (read iport))
 (close-input-port iport)
 
-;; name equivalently:
-(define a (get "/Users/jaten/research/bigloo/test.dat"))
+;; better yet, name what we get, and use our new function file-get
+(define a (file-get "/Users/jaten/research/bigloo/test.dat"))
 
 
 ;; make a hash-table for them

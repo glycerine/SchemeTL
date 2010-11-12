@@ -1,0 +1,23 @@
+SchemeTL : Scheme To Learn
+  - Learning Scheme by implementing STL data structure equivalents.
+
+  git@github.com:glycerine/SchemeTL.git
+
+Have to add an ssh key with a good password; setup instructions here: http://help.github.com/key-setup-redirect/
+
+Setup was accomplished with, instructions here: https://github.com/glycerine/SchemeTL
+
+  mkdir SchemeTL
+  cd SchemeTL
+  git init
+  touch README
+  git add README
+  git add putget.scm
+  git commit -m 'first commit'
+  git remote add origin git@github.com:glycerine/SchemeTL.git
+  git push origin master
+
+first actual file:
+
+putget.scm : small functions for reading and writing data from disk, and exploring hash tables.
+
