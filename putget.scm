@@ -11,7 +11,7 @@
 
 (define file-put (lambda (x path)
 	       (define oport (open-output-file path))
-	       (write a oport)
+	       (write x oport)
 	       (close-output-port oport)
 	       )
    )
