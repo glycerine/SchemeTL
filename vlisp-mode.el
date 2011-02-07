@@ -1,5 +1,5 @@
-;;; vlisp-1.5
-;;; (Setq vlisp-version-string "1.5") ; update this below when changing.
+;;; vlisp-2.4
+;;; (Setq vlisp-version-string "2.4") ; update this below when changing.
 ;;;
 ;;; vlisp-mode.el - is a pair of modes for sending lines from a 
 ;;;                  script (sender) to a comint-started inferior 
@@ -66,7 +66,7 @@
 (defvar vlisp-keypress-to-send-sexp-jdev-prev (kbd "C-p")
   "keypress that sends the previous sexp to the repl")
 
-(defvar vlisp-version-string "1.5"
+(defvar vlisp-version-string "2.4"
   "version of vlisp currently running.")
 
 ;; ================================================
@@ -236,6 +236,12 @@ code line."
     (point-max)
 ))
 
+(defun nil-to-point-min (x)
+  (if x 
+      x 
+    (point-min)
+))
+
 (defun skip-lisp-comment-lines ()
   "skip over lines that start with semi-colons before they have another non-whitespace character"
   (interactive)
@@ -277,8 +283,183 @@ code line."
     )
   )
 
+(defvar DEBUG_STATUS 'off)
 
-(defun my-forward-sexp-ignoring-comments ()
+;(setq DEBUG_STATUS 'on)
+(setq DEBUG_STATUS 'off)
+
+(defmacro DEBUG (&rest body)
+  "DEBUG is simple call to (@body) or nil, depending on the value of DEBUG_STATUS being 'on or not. 
+Makes it easy to debug when needed. You will have to recompile, of course, in order for the
+macro to be able to take effect, if you change the value of DEBUG_STATUS. For efficiency's
+sake, this is a compile time, not a runtime, convenience."
+  (if (eql DEBUG_STATUS 'on)
+      `(,@body)
+    'nil)
+)
+
+;; test
+;; (DEBUG message "startp       is %s" startp)
+;; (macroexpand '(DEBUG message "startp       is %s" startp))
+
+
+(defun line-is-comment-or-whitespace ()
+  "determine if this line can be ignored because it is just a comment or whitespace"
+  (interactive)
+  (DEBUG message "***************** starting: (line-is-comment-or-whitespace), at %S" (line-number-at-pos))
+  (block block-line-is-comment-or-whitespace
+  (let* ((startp (point))
+	 (nextword nil)
+	 (nextcomment nil)
+	 (bol nil)
+	 (eol nil)
+	 (prevbol nil)
+	 )
+
+      (setq startp        (point))
+      (setq bol           (progn (goto-char startp)                         (nil-to-point-min (search-backward "\n" 0 0 1))))
+      (setq prevbol       (progn (goto-char (max (point-min) (- bol 1)))    (nil-to-point-min (search-backward "\n" 0 0 1))))
+      (setq nextcomment   (progn (goto-char bol)                            (nil-to-point-max (search-forward ";" nil 0 1))))
+      (setq eol           (progn (goto-char startp)                         (nil-to-point-max (search-forward "\n" nil 0 1))))
+      (setq nextword      (progn (goto-char bol)                            (+ (point) (skip-chars-forward "\t ;\n"))))
+
+      (goto-char startp)
+
+      (DEBUG message "startp       is %s" startp)
+      (DEBUG message "bol          is %s" bol)
+      (DEBUG message "eol          is %s" eol)
+      (DEBUG message "prevbol      is %s" prevbol)
+      (DEBUG message "nextcomment  is %s" nextcomment)
+      (DEBUG message "nextword     is %s" nextword)
+
+      ;; when startp == 1 + bol, and nextcomment == 1 + startp, then we have a line of all comments
+      (when (and (= startp (+ 1 bol))
+		 (= nextcomment (+ 1 startp)))
+	(DEBUG message "line is empty, returning t early")
+	(return-from block-line-is-comment-or-whitespace t))
+
+      ;; sanity check for empty lines
+      (when (and (= eol (+ 1 startp))
+		 (= bol (- startp 1))
+		 )
+	(progn 
+	  (DEBUG message "line is empty, returning t early")
+	  (return-from block-line-is-comment-or-whitespace t)))
+
+
+      ;; if nextword    > eol this is skippable.
+      (when (> nextword eol)
+	(progn
+	  (DEBUG message "nextword > eol, returning t early")
+	  (return-from block-line-is-comment-or-whitespace t)))
+
+
+      ;; INVAR: bol < nextword < eol, only question left: is there a comment before the nextword?
+
+      (if (or (> nextcomment eol)
+	      (< nextcomment bol))
+	  
+	  ;; nextcomment is not in play
+	  (progn
+	    (DEBUG message "nil: cannot skip b/c bol < nextword < eol, and no comment present on this line.")
+	    (return-from block-line-is-comment-or-whitespace nil))
+	
+	;; INVAR: comment is in play, and may obscucate the entire line.
+	(if (<= nextcomment nextword)
+	    (progn
+	      (DEBUG message "t: can skip")
+	      (return-from block-line-is-comment-or-whitespace t))
+	  
+	  ;;
+	  (progn
+	    (DEBUG message "nil: cannot skip b/c bol < nextword < nextcomment < eol.")
+	    (return-from block-line-is-comment-or-whitespace nil)))
+
+	) ;; endif 
+)))
+
+
+(defun skip-lisp-comment-lines-backwards ()
+  "Going backwards, skip over lines that start with semi-colons before they have another non-whitespace character.
+The main side-effect is to reposition point. The function returns the new position of point, 
+which is just following the next form back."
+
+  (interactive)
+  (DEBUG message "***************** starting: (skip-lisp-comment-lines-backwards)")
+  (block block-skip-lisp-comment-lines-backwards
+    (DEBUG message "--> point is starting at %s" (point))
+    (let* ((startp (point))
+	   (next-word-back)
+	   (bol)
+	   (nextcomment)
+	   (eol)
+	   (start-backwards-search)
+	   (starting-line (line-number-at-pos))
+	   (cur-line      starting-line)
+	   )
+      
+      ;; back up until we find a line with something like a lisp form on it (and the whole line is not commented out)
+      (beginning-of-line)
+
+      ;; handle the case of starting at the beginning of a non-comment line, by backing up one line before we search...
+      (when (and (= (point) startp)
+		 (> startp  (point-min)))
+	;; we started at the beginning of a line, and it's not the first line, so back up past the newline to prev line.
+	(goto-char (- startp 1))
+	(beginning-of-line))
+      
+      ;; main backup while loop
+      (while (and (line-is-comment-or-whitespace)
+		  (> (point) (point-min)))
+	(forward-line -1)
+	)
+
+      ;; if we have moved lines, reset to our new starting place...
+      (setq cur-line (line-number-at-pos))
+      (if (= cur-line starting-line)
+	  (goto-char startp)
+	(progn
+	  (end-of-line)
+	  (setq startp (point))))
+      (DEBUG message "--> After revision of backing up past comments, point is at %s" (point))
+
+
+      ;; INVAR: we are on a line with some content, or we are at the beginning of the buffer
+      (when (line-is-comment-or-whitespace)
+	;; beginning of buffer, just get to the start.
+	(goto-char (point-min)) 
+	(return-from block-skip-lisp-comment-lines-backwards (point-min)))
+	  
+      (DEBUG message "--> INVAR: we are on a line with some content")
+    
+      (setq bol           (progn (goto-char startp)                         (nil-to-point-min (search-backward "\n" 0 0 1))))
+      (setq nextcomment   (progn (goto-char bol)                            (nil-to-point-max (search-forward ";" nil 0 1))))
+      (setq eol           (progn (goto-char startp)                         (nil-to-point-max (search-forward "\n" nil 0 1))))
+
+      ;; start from eol, or from nextcomment if nextcomment is < eol
+      (setq start-backwards-search eol)
+      (when (< nextcomment eol)
+	(setq start-backwards-search nextcomment))
+
+      (setq next-word-back 
+	    (progn 
+	      (goto-char start-backwards-search)    
+	      (+ 
+	       (point) 
+	       (skip-chars-backward "\t ;\n"))))
+
+      (goto-char next-word-back)
+)))
+
+;; debug bindings
+;;  (global-set-key "\C-o" 'skip-lisp-comment-lines-backwards)
+;;  (global-set-key "\C-o" 'line-is-comment-or-whitespace)
+;;  (global-set-key "\C-o"   'my-backward-sexp-ignoring-comments)
+  (global-set-key "\C-o"   '(forward-line -1))
+
+
+  
+  (defun my-forward-sexp-ignoring-comments ()
   "Move forward across one balanced expression (sexp), ignoring ; comments"
   (interactive "^p")
 
@@ -316,7 +497,24 @@ code line."
     (skip-lisp-comment-lines) ;; call the above function to handle skipping to the next sexp.
     
     (forward-sexp)
+    (skip-lisp-comment-lines) ;; get to the beginning of the next form
 )
+
+
+(defun my-backward-sexp-ignoring-comments ()
+  "Move backward across one balanced expression (sexp), ignoring comments in the form of semicolons"
+  (interactive)
+  (DEBUG message "******** starting: my-backward-sexp-ignoring-comments")
+  (skip-lisp-comment-lines-backwards)
+  (if (line-is-comment-or-whitespace)
+      (progn
+	(DEBUG message "*************************** my-backward-sexp-ignoring-comments: finishing with (beginning-of-line) and t <<<<<")
+	(beginning-of-line)
+	t)
+    (progn
+      (DEBUG message "*************************** my-backward-sexp-ignoring-comments: finishing with (backward-sexp) and t <<<<<")
+      (backward-sexp)
+      t)))
 
 
 (defun vlisp-advance-and-eval-sexp-jdev ()
@@ -330,7 +528,7 @@ inferior-vlisp-buffer, so as to step through lines in a lisp .cl file"
        (my-forward-sexp-ignoring-comments)
        (setq pend (point))
        ;;(setq str (buffer-substring pstart pend))
-       (with-current-buffer clisp-buf (end-of-buffer))
+       (with-current-buffer clisp-buf (goto-char (point-max)))
        (append-to-buffer clisp-buf pstart pend)
        (with-current-buffer clisp-buf 
 	 (setq comint-eol-on-send t)
@@ -338,6 +536,7 @@ inferior-vlisp-buffer, so as to step through lines in a lisp .cl file"
 	 (setq comint-move-point-for-output t)
 	 (comint-send-input)
 	 (display-buffer clisp-buf)
+	 (recenter)
 ))
 	 
 
@@ -346,20 +545,26 @@ inferior-vlisp-buffer, so as to step through lines in a lisp .cl file"
        (interactive)
        (inferior-vlisp t)
        (setq clisp-buf inferior-vlisp-buffer)
-       (backward-sexp)
-       (setq pstart (point))
-       (push-mark)
-       (forward-sexp)
-       (setq pend (point))
-       (with-current-buffer clisp-buf (end-of-buffer))
-       (append-to-buffer clisp-buf pstart pend)
-       (with-current-buffer clisp-buf 
-	 (setq comint-eol-on-send t)
-	 (setq comint-process-echoes nil)
-	 (setq comint-move-point-for-output t)
-	 (comint-send-input)
-	 (display-buffer clisp-buf)
-))
+       (if (and (my-backward-sexp-ignoring-comments)
+		  (not (line-is-comment-or-whitespace)))
+	   (progn
+	     (setq pstart (point))
+	     (push-mark)
+	     (forward-sexp)
+	     (setq pend (point))
+	     (with-current-buffer clisp-buf (goto-char (point-max)))
+	     (append-to-buffer clisp-buf pstart pend)
+	     (with-current-buffer clisp-buf 
+	       (setq comint-eol-on-send t)
+	       (setq comint-process-echoes nil)
+	       (setq comint-move-point-for-output t)
+	       (comint-send-input)
+	       (display-buffer clisp-buf)
+	       (recenter)
+	       )
+	     ;;(skip-lisp-comment-lines)
+	     )
+	 (beginning-of-line)))
 
 
 ;;;;;;;;;;;; simplest possible major mode stuff
