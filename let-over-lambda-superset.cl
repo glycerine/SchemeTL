@@ -98,16 +98,16 @@
 
 ;; Chapter 3
 
-(defun sleep-units% (value unit)
-  (sleep
-    (* value
-       (case unit
-         ((s) 1)
-         ((m) 60)
-         ((h) 3600)
-         ((d) 86400)
-         ((ms) 1/1000)
-         ((us) 1/1000000)))))
+;; (defun sleep-units% (value unit)
+;;   (sleep
+;;     (* value
+;;        (case unit
+;;          ((s) 1)
+;;          ((m) 60)
+;;          ((h) 3600)
+;;          ((d) 86400)
+;;          ((ms) 1/1000)
+;;          ((us) 1/1000000)))))
 
 
 (defmacro sleep-units (value unit)
@@ -982,59 +982,65 @@
 
 ;; start orig-only code
 
-
-(defun fast-keywords-strip (args)
-  (if args
-    (cond
-      ((eq (car args) '&key)
-        (fast-keywords-strip (cdr args)))
-      ((consp (car args))
-        (cons (caar args)
-              #1=(fast-keywords-strip
-                   (cdr args))))
-      (t
-        (cons (car args) #1#)))))
-
-
-
-(defmacro! defun-with-fast-keywords
-           (name args &rest body)
-  `(progn
-     (defun ,name ,args ,@body)
-     (defun ,g!fast-fun
-            ,(fast-keywords-strip args)
-            ,@body)
-     (compile ',g!fast-fun)
-     (define-compiler-macro ,name (&rest ,g!rest)
-       (destructuring-bind ,args ,g!rest
-         (list ',g!fast-fun
-               ,@(fast-keywords-strip args))))))
-
-
-
-(defun
-  slow-keywords-test (a b &key (c 0) (d 0))
-  (+ a b c d))
-
-(compile 'slow-keywords-test)
-
-(defun-with-fast-keywords
-  fast-keywords-test (a b &key (c 0) (d 0))
-  (+ a b c d))
-
-
-
-(defun keywords-benchmark (n)
-  (format t "Slow keys:~%")
-  (time
-    (loop for i from 1 to n do
-      (slow-keywords-test 1 2 :d 3 :c n)))
-  (format t "Fast keys:~%")
-  (time
-    (loop for i from 1 to n do
-      (fast-keywords-test 1 2 :d 3 :c n))))
-
-(compile 'keywords-benchmark)
+;; jea: wouldn't compile and then load, so commented out
+;;
+;; (defun fast-keywords-strip (args)
+;;   (if args
+;;     (cond
+;;       ((eq (car args) '&key)
+;;         (fast-keywords-strip (cdr args)))
+;;       ((consp (car args))
+;;         (cons (caar args)
+;;               #1=(fast-keywords-strip
+;;                    (cdr args))))
+;;       (t
+;;         (cons (car args) #1#)))))
+;;
+;;
+;; jea: wouldn't compile 
+;;
+;; Error in KERNEL::UNBOUND-SYMBOL-ERROR-HANDLER:  the variable #:FAST-FUN1 is unbound.
+;;   [Condition of type UNBOUND-VARIABLE]
+;;
+;;
+;; (defmacro! defun-with-fast-keywords
+;;            (name args &rest body)
+;;   `(progn
+;;      (defun ,name ,args ,@body)
+;;      (defun ,g!fast-fun
+;;             ,(fast-keywords-strip args)
+;;             ,@body)
+;;      (compile ',g!fast-fun)
+;;      (define-compiler-macro ,name (&rest ,g!rest)
+;;        (destructuring-bind ,args ,g!rest
+;;          (list ',g!fast-fun
+;;                ,@(fast-keywords-strip args))))))
+;;
+;;
+;;
+;; (defun
+;;   slow-keywords-test (a b &key (c 0) (d 0))
+;;   (+ a b c d))
+;;
+;;(compile 'slow-keywords-test)
+;;
+;; (defun-with-fast-keywords
+;;   fast-keywords-test (a b &key (c 0) (d 0))
+;;   (+ a b c d))
+;;
+;;
+;;
+;; (defun keywords-benchmark (n)
+;;   (format t "Slow keys:~%")
+;;   (time
+;;     (loop for i from 1 to n do
+;;       (slow-keywords-test 1 2 :d 3 :c n)))
+;;   (format t "Fast keys:~%")
+;;   (time
+;;     (loop for i from 1 to n do
+;;       (fast-keywords-test 1 2 :d 3 :c n))))
+;;
+;; (compile 'keywords-benchmark)
 
 
 
@@ -1065,17 +1071,17 @@
 
 
 
-(defun fformat-benchmark (n)
-  (format t "Format:~%")
-  (time
-    (loop for i from 1 to n do
-      ( format nil "Hello ~a ~a~%" 'world n)))
-  (format t "Fformat:~%")
-  (time
-    (loop for i from 1 to n do
-      (fformat nil "Hello ~a ~a~%" 'world n))))
+;; (defun fformat-benchmark (n)
+;;   (format t "Format:~%")
+;;   (time
+;;     (loop for i from 1 to n do
+;;       ( format nil "Hello ~a ~a~%" 'world n)))
+;;   (format t "Fformat:~%")
+;;   (time
+;;     (loop for i from 1 to n do
+;;       (fformat nil "Hello ~a ~a~%" 'world n))))
 
-(compile 'fformat-benchmark)
+;; (compile 'fformat-benchmark)
 
 
 
@@ -1472,44 +1478,44 @@
 ;; begin orig-only code
 
 
-(defmacro sort-benchmark-time ()
-  `(progn
-     (setq sorter (compile nil sorter))
-     (let ((arr (make-array
-                n :element-type 'fixnum)))
-       (time
-         (loop for i from 1 to iters do
-           (loop for j from 0 to (1- n) do
-             (setf (aref arr j) (random n)))
-           (funcall sorter arr))))))
+;; (defmacro sort-benchmark-time ()
+;;   `(progn
+;;      (setq sorter (compile nil sorter))
+;;      (let ((arr (make-array
+;;                 n :element-type 'fixnum)))
+;;        (time
+;;          (loop for i from 1 to iters do
+;;            (loop for j from 0 to (1- n) do
+;;              (setf (aref arr j) (random n)))
+;;            (funcall sorter arr))))))
 
 
 
-(defun do-sort-benchmark (n iters)
-  (let ((rs (make-random-state *random-state*)))
-    (format t "CL sort:~%")
-    (let ((sorter
-            '(lambda (arr)
-                #f
-                (declare (type (simple-array fixnum)
-                               arr))
-                (sort arr #'<))))
-      (sort-benchmark-time))
+;; (defun do-sort-benchmark (n iters)
+;;   (let ((rs (make-random-state *random-state*)))
+;;     (format t "CL sort:~%")
+;;     (let ((sorter
+;;             '(lambda (arr)
+;;                 #f
+;;                 (declare (type (simple-array fixnum)
+;;                                arr))
+;;                 (sort arr #'<))))
+;;       (sort-benchmark-time))
 
-    (setf *random-state* rs)
-    (format t "sortf:~%")
-    (let ((sorter
-            `(lambda (arr)
-                #f
-                (declare (type (simple-array fixnum)
-                               arr))
-                (sortf <
-                  ,@(loop for i from 0 to (1- n)
-                          collect `(aref arr ,i)))
-                arr)))
-      (sort-benchmark-time))))
+;;     (setf *random-state* rs)
+;;     (format t "sortf:~%")
+;;     (let ((sorter
+;;             `(lambda (arr)
+;;                 #f
+;;                 (declare (type (simple-array fixnum)
+;;                                arr))
+;;                 (sortf <
+;;                   ,@(loop for i from 0 to (1- n)
+;;                           collect `(aref arr ,i)))
+;;                 arr)))
+;;       (sort-benchmark-time))))
 
-(compile 'do-sort-benchmark)
+;; (compile 'do-sort-benchmark)
 
 
 
