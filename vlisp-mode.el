@@ -1,5 +1,5 @@
-;;; vlisp-2.4
-;;; (Setq vlisp-version-string "2.4") ; update this below when changing.
+;;; vlisp-2.5
+;;; (Setq vlisp-version-string "2.5") ; update this below when changing.
 ;;;
 ;;; vlisp-mode.el - is a pair of modes for sending lines from a 
 ;;;                  script (sender) to a comint-started inferior 
@@ -16,7 +16,7 @@
 ;;;               R. As such it falls under the GNU General Public
 ;;;               License version 3 or later.
 ;;;
-;;; Copyright (C) 1998, Author: Jason E. Aten
+;;; Copyright (C) 2011, Author: Jason E. Aten
 ;;;
 ;;; how to install:
 ;;;
@@ -66,7 +66,7 @@
 (defvar vlisp-keypress-to-send-sexp-jdev-prev (kbd "C-p")
   "keypress that sends the previous sexp to the repl")
 
-(defvar vlisp-version-string "2.4"
+(defvar vlisp-version-string "2.5"
   "version of vlisp currently running.")
 
 ;; ================================================
